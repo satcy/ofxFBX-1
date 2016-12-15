@@ -34,6 +34,7 @@
 #include "ofxFBXCluster.h"
 #include "ofxFBXSkeleton.h"
 #include "ofxFBXPose.h"
+#include "ofxFBXCamera.h"
 
 class ofxFBXSceneSettings {
 public:
@@ -67,7 +68,7 @@ public:
     
 	vector< shared_ptr<ofxFBXMesh> >& getMeshes();
 //    vector< shared_ptr<ofxFBXSkeleton> >& getSkeletons();
-    
+    vector< shared_ptr<ofxFBXCamera> > & getCameras();
     
     int getNumAnimations();
     bool areAnimationsEnabled();
@@ -97,8 +98,17 @@ private:
     void constructSkeletons( FbxNode* pNode, FbxAnimLayer* pAnimLayer );
     void constructSkeletonsRecursive( ofxFBXSkeleton* aSkeleton, FbxNode* pNode, int aBoneLevel );
     
+    void parseScene(FbxNode* pNode, FbxAnimLayer * pAnimLayer, shared_ptr<ofxFBXNode> parentNode);
+    shared_ptr<ofxFBXNode> parseCameraInfo(FbxNode* pNode, FbxAnimLayer * pAnimLayer);
+    
+    void parsePositionCurve(ofxFBXNode & node, FbxAnimLayer * pAnimLayer, FbxPropertyT<FbxDouble3> &position);
+    void parseScaleCurve(ofxFBXNode & node, FbxAnimLayer * pAnimLayer, FbxPropertyT<FbxDouble3> &scale);
+    void parseRotationCurve(ofxFBXNode & node, FbxAnimLayer * pAnimLayer, FbxNode* fbxNode, FbxPropertyT<FbxDouble3> &rotation);
+    
     FbxTime fbxFrameTime;
     string fbxFilePath;
+    
+    vector< shared_ptr<ofxFBXCamera> > camerasList;
     
     vector< shared_ptr<ofxFBXBone> > bones;
     vector< shared_ptr<ofxFBXCluster> > clusters;

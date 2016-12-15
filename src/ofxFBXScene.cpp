@@ -8,6 +8,8 @@
 
 #include "ofxFBXScene.h"
 #include "Common/Common.h"
+#define HFOV2VFOV(h, ar) (2.0 * atan((ar) * tan( (h * FBXSDK_PI_DIV_180) * 0.5)) * FBXSDK_180_DIV_PI) //ar : aspectY / aspectX
+#define VFOV2HFOV(v, ar) (2.0 * atan((ar) * tan( (v * FBXSDK_PI_DIV_180) * 0.5)) * FBXSDK_180_DIV_PI) //ar : aspectX / aspectY
 
 //--------------------------------------------------------------
 ofxFBXScene::ofxFBXScene() {
@@ -132,6 +134,8 @@ bool ofxFBXScene::load( string path, ofxFBXSceneSettings aSettings ) {
         constructSkeletons( lScene->GetRootNode(), currentFbxAnimationLayer );
     }
     
+    parseScene(lScene->GetRootNode(), currentFbxAnimationLayer, nullptr);
+    
     return true;
 }
 
@@ -150,6 +154,9 @@ vector< shared_ptr<ofxFBXMesh> >& ofxFBXScene::getMeshes() {
 //vector<ofxFBXSkeleton*>& ofxFBXScene::getSkeletons() {
 //	return skeletons;
 //}
+vector< shared_ptr<ofxFBXCamera> >& ofxFBXScene::getCameras() {
+    return camerasList;
+}
 
 #pragma mark - Utils
 // ---------------------------------------------- utils
@@ -578,8 +585,310 @@ void ofxFBXScene::populatePoses( vector< shared_ptr<ofxFBXPose> >& aInPoses ) {
 
 
 
+void ofxFBXScene::parseScene(FbxNode* pNode, FbxAnimLayer * pAnimLayer, shared_ptr<ofxFBXNode> parentNode){
+    ofLogVerbose("ofxFBXScene") << "found node " << pNode->GetName() << " of type " << pNode->GetTypeName() << endl;
+    if( pNode->GetCamera() ){
+        shared_ptr<ofxFBXNode> node = parseCameraInfo(pNode,pAnimLayer);
+        if(parentNode != nullptr) node->setParent(*parentNode);
+        parentNode = node;
+    }
+    
+    //recursively traverse each node in the scene
+    int i, lCount = pNode->GetChildCount();
+    for (i = 0; i < lCount; i++)
+    {
+        parseScene(pNode->GetChild(i), pAnimLayer, parentNode);
+    }
+}
 
 
 
+shared_ptr<ofxFBXNode> ofxFBXScene::parseCameraInfo(FbxNode* pNode, FbxAnimLayer * pAnimLayer){
+    FbxCamera* lCamera = pNode->GetCamera();
+    
+    shared_ptr<ofxFBXCamera> camera = shared_ptr<ofxFBXCamera>(new ofxFBXCamera());
+    
+    camera->setName( lCamera->GetName() );
+    
+    parsePositionCurve(*camera.get(),pAnimLayer,pNode->LclTranslation);
+    
+    parseScaleCurve(*camera.get(),pAnimLayer,pNode->LclScaling);
+    //camera.originalScale.set(1,1,1);
+    
+    parseRotationCurve(*camera.get(),pAnimLayer,pNode,pNode->LclRotation);
+    
+    camera->ofCamera::setPosition(camera->originalPosition);
+    
+    if(pNode->GetTarget()){
+        camera->target = ofxFBXNodePosition(pNode->GetTarget());
+        //TODO: process lookAt animation
+    }else{
+        camera->target = toOf(lCamera->InterestPosition.Get());
+    }
+    
+    
+    float lNearPlane = lCamera->GetNearPlane();
+    float lFarPlane = lCamera->GetFarPlane();
+    
+    //Get global scaling.
+    FbxVector4 lCameraScaling = pNode->LclScaling.Get();//GetGlobalPosition(pNode, 0).GetS();
+    static const int  FORWARD_SCALE = 2;
+    
+    //scaling near plane and far plane
+    //lNearPlane *= lCameraScaling[FORWARD_SCALE];
+    //lFarPlane *= lCameraScaling[FORWARD_SCALE];
+    
+    
+    FbxCamera::EAspectRatioMode lCamAspectRatioMode = lCamera->GetAspectRatioMode();
+    double lAspectX = lCamera->AspectWidth.Get();
+    double lAspectY = lCamera->AspectHeight.Get();
+    double lAspectRatio = 1.333333;
+    switch( lCamAspectRatioMode)
+    {
+        case FbxCamera::eWindowSize:
+            lAspectRatio = lAspectX / lAspectY;
+            break;
+        case FbxCamera::eFixedRatio:
+            lAspectRatio = lAspectX;
+            
+            break;
+        case FbxCamera::eFixedResolution:
+            lAspectRatio = lAspectX / lAspectY * lCamera->GetPixelRatio();
+            break;
+        case FbxCamera::eFixedWidth:
+            lAspectRatio = lCamera->GetPixelRatio() / lAspectY;
+            break;
+        case FbxCamera::eFixedHeight:
+            lAspectRatio = lCamera->GetPixelRatio() * lAspectX;
+            break;
+        default:
+            break;
+            
+    }
+    
+    //get the aperture ratio
+    double lFilmHeight = lCamera->GetApertureHeight();
+    double lFilmWidth = lCamera->GetApertureWidth() * lCamera->GetSqueezeRatio();
+    //here we use Height : Width
+    double lApertureRatio = lFilmHeight / lFilmWidth;
+    
+    
+    //change the aspect ratio to Height : Width
+    lAspectRatio = 1 / lAspectRatio;
+    //revise the aspect ratio and aperture ratio
+    FbxCamera::EGateFit lCameraGateFit = lCamera->GateFit.Get();
+    switch( lCameraGateFit )
+    {
+            
+        case FbxCamera::eFitFill:
+            if( lApertureRatio > lAspectRatio)  // the same as eHORIZONTAL_FIT
+            {
+                lFilmHeight = lFilmWidth * lAspectRatio;
+                lCamera->SetApertureHeight( lFilmHeight);
+                lApertureRatio = lFilmHeight / lFilmWidth;
+            }
+            else if( lApertureRatio < lAspectRatio) //the same as eVERTICAL_FIT
+            {
+                lFilmWidth = lFilmHeight / lAspectRatio;
+                lCamera->SetApertureWidth( lFilmWidth);
+                lApertureRatio = lFilmHeight / lFilmWidth;
+            }
+            break;
+        case FbxCamera::eFitVertical:
+            lFilmWidth = lFilmHeight / lAspectRatio;
+            lCamera->SetApertureWidth( lFilmWidth);
+            lApertureRatio = lFilmHeight / lFilmWidth;
+            break;
+        case FbxCamera::eFitHorizontal:
+            lFilmHeight = lFilmWidth * lAspectRatio;
+            lCamera->SetApertureHeight( lFilmHeight);
+            lApertureRatio = lFilmHeight / lFilmWidth;
+            break;
+        case FbxCamera::eFitStretch:
+            lAspectRatio = lApertureRatio;
+            break;
+        case FbxCamera::eFitOverscan:
+            if( lFilmWidth > lFilmHeight)
+            {
+                lFilmHeight = lFilmWidth * lAspectRatio;
+            }
+            else
+            {
+                lFilmWidth = lFilmHeight / lAspectRatio;
+            }
+            lApertureRatio = lFilmHeight / lFilmWidth;
+            break;
+        case FbxCamera::eFitNone:
+        default:
+            break;
+    }
+    //change the aspect ratio to Width : Height
+    lAspectRatio = 1 / lAspectRatio;
+    
+    double lFieldOfViewX = 0.0;
+    double lFieldOfViewY = 0.0;
+    if ( lCamera->GetApertureMode() == FbxCamera::eVertical)
+    {
+        lFieldOfViewY = lCamera->FieldOfView.Get();
+        lFieldOfViewX = VFOV2HFOV( lFieldOfViewY, 1 / lApertureRatio);
+    }
+    else if (lCamera->GetApertureMode() == FbxCamera::eHorizontal)
+    {
+        lFieldOfViewX = lCamera->FieldOfView.Get(); //get HFOV
+        lFieldOfViewY = HFOV2VFOV( lFieldOfViewX, lApertureRatio);
+    }
+    else if (lCamera->GetApertureMode() == FbxCamera::eFocalLength)
+    {
+        lFieldOfViewX = lCamera->ComputeFieldOfView(lCamera->FocalLength.Get());    //get HFOV
+        lFieldOfViewY = HFOV2VFOV( lFieldOfViewX, lApertureRatio);
+    }
+    else if (lCamera->GetApertureMode() == FbxCamera::eHorizAndVert) {
+        lFieldOfViewX = lCamera->FieldOfViewX.Get();
+        lFieldOfViewY = lCamera->FieldOfViewY.Get();
+    }
+    
+    
+    //revise the Perspective since we have film offset
+    double lFilmOffsetX = lCamera->FilmOffsetX.Get();
+    double lFilmOffsetY = lCamera->FilmOffsetY.Get();
+    lFilmOffsetX = 0 - lFilmOffsetX / lFilmWidth * 2.0;
+    lFilmOffsetY = 0 - lFilmOffsetY / lFilmHeight * 2.0;
+    
+    camera->setFov(lFieldOfViewY);
+    camera->setNearClip(lNearPlane);
+    camera->setFarClip(lFarPlane);
+    
+    
+    camerasList.push_back(camera);
+    return camerasList.back();
+    
+    
+}
+
+void ofxFBXScene::parsePositionCurve(ofxFBXNode & node, FbxAnimLayer * pAnimLayer, FbxPropertyT<FbxDouble3> &position){
+    node.originalPosition = toOf(position.Get());
+    node.setPosition(node.originalPosition);
+    ofLogVerbose("ofxFBXScene") << "original position " << node.originalPosition << endl;
+    
+    
+    if(!position.GetCurve(pAnimLayer)) return;
+    FbxAnimCurve* lAnimCurveX = position.GetCurve(pAnimLayer,"X");
+    FbxAnimCurve* lAnimCurveY = position.GetCurve(pAnimLayer,"Y");
+    FbxAnimCurve* lAnimCurveZ = position.GetCurve(pAnimLayer,"Z");
+    
+    FbxTime   lKeyTime;
+    int     lCount;
+    
+    int xKeyCount = lAnimCurveX? lAnimCurveX->KeyGetCount() : 0;
+    int yKeyCount = lAnimCurveY? lAnimCurveY->KeyGetCount() : 0;
+    int zKeyCount = lAnimCurveZ? lAnimCurveZ->KeyGetCount() : 0;
+    
+    ofxFBXKey<float> key;
+    for(lCount = 0; lCount < xKeyCount; lCount++)
+    {
+        key.value = lAnimCurveX->KeyGetValue(lCount);
+        lKeyTime  = lAnimCurveX->KeyGetTime(lCount);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.xKeys.push_back(key);
+    }
+    for(lCount = 0; lCount < yKeyCount; lCount++)
+    {
+        key.value = lAnimCurveY->KeyGetValue(lCount);
+        lKeyTime  = lAnimCurveY->KeyGetTime(lCount);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.yKeys.push_back(key);
+    }
+    for(lCount = 0; lCount < zKeyCount; lCount++)
+    {
+        key.value = lAnimCurveZ->KeyGetValue(lCount);
+        lKeyTime  = lAnimCurveZ->KeyGetTime(lCount);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.zKeys.push_back(key);
+    }
+}
+
+void ofxFBXScene::parseScaleCurve(ofxFBXNode & node, FbxAnimLayer * pAnimLayer, FbxPropertyT<FbxDouble3> &scale){
+    node.originalScale = toOf(scale.Get());
+    node.setScale(node.originalScale);
+    ofLogVerbose("ofxFBXScene") << "original scale " << node.originalScale << endl;
+    
+    if(!scale.GetCurve(pAnimLayer)) return;
+    FbxAnimCurve* lAnimCurveX = scale.GetCurve(pAnimLayer,"X");
+    FbxAnimCurve* lAnimCurveY = scale.GetCurve(pAnimLayer,"Y");
+    FbxAnimCurve* lAnimCurveZ = scale.GetCurve(pAnimLayer,"Z");
+    
+    FbxTime   lKeyTime;
+    int     lCount;
+    
+    int xKeyCount = lAnimCurveX? lAnimCurveX->KeyGetCount() : 0;
+    int yKeyCount = lAnimCurveY? lAnimCurveY->KeyGetCount() : 0;
+    int zKeyCount = lAnimCurveZ? lAnimCurveZ->KeyGetCount() : 0;
+    
+    ofxFBXKey<float> key;
+    for(lCount = 0; lCount < xKeyCount; lCount++)
+    {
+        key.value = lAnimCurveX->KeyGetValue(lCount);
+        lKeyTime  = lAnimCurveX->KeyGetTime(lCount);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.xScaleKeys.push_back(key);
+    }
+    for(lCount = 0; lCount < yKeyCount; lCount++)
+    {
+        key.value = lAnimCurveY->KeyGetValue(lCount);
+        lKeyTime  = lAnimCurveY->KeyGetTime(lCount);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.yScaleKeys.push_back(key);
+    }
+    for(lCount = 0; lCount < zKeyCount; lCount++)
+    {
+        key.value = lAnimCurveZ->KeyGetValue(lCount);
+        lKeyTime  = lAnimCurveZ->KeyGetTime(lCount);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.zScaleKeys.push_back(key);
+    }
+}
+
+void ofxFBXScene::parseRotationCurve(ofxFBXNode & node, FbxAnimLayer * pAnimLayer, FbxNode* fbxNode, FbxPropertyT<FbxDouble3> &rotation){
+    node.originalRotation = ofQuaternion(rotation.Get().mData[0], ofVec3f(1, 0, 0), rotation.Get().mData[1], ofVec3f(0, 1, 0), rotation.Get().mData[2], ofVec3f(0, 0, 1));
+    node.setOrientation(node.originalRotation);
+    ofLogVerbose("ofxFBXScene") << "original rotation " << endl << node.originalRotation << endl;
+    
+    if(!rotation.GetCurve(pAnimLayer)) return;
+    FbxAnimCurve* lAnimCurveX = rotation.GetCurve(pAnimLayer,"X");
+    FbxAnimCurve* lAnimCurveY = rotation.GetCurve(pAnimLayer,"Y");
+    FbxAnimCurve* lAnimCurveZ = rotation.GetCurve(pAnimLayer,"Z");
+    
+    
+    int xKeyCount = lAnimCurveX ? lAnimCurveX->KeyGetCount() : 0;
+    int yKeyCount = lAnimCurveY ? lAnimCurveY->KeyGetCount() : 0;
+    int zKeyCount = lAnimCurveZ ? lAnimCurveZ->KeyGetCount() : 0;
+    
+    FbxTime   lKeyTime;
+    int     lCount;
+    FbxTime lXKeyTime,lYKeyTime,lZKeyTime;
+    for(lCount = 0; lCount < max(max(xKeyCount,yKeyCount),zKeyCount); lCount++)
+    {
+        if(lCount<xKeyCount){
+            lXKeyTime  = lAnimCurveX->KeyGetTime(lCount);
+        }
+        if(lCount<yKeyCount){
+            lYKeyTime  = lAnimCurveY->KeyGetTime(lCount);
+        }
+        if(lCount<zKeyCount){
+            lZKeyTime  = lAnimCurveZ->KeyGetTime(lCount);
+        }
+        lKeyTime = min(min(lXKeyTime,lYKeyTime),lZKeyTime);
+        lKeyTime = lXKeyTime;
+        
+        FbxAMatrix & matrix = fbxNode->EvaluateLocalTransform(lKeyTime);
+        ofxFBXKey<ofQuaternion> key;
+        ofVec3f t,s;
+        ofQuaternion so;
+        ofMatrix4x4 m = toOf(matrix);
+        m.decompose(t,key.value,s,so);
+        key.timeMillis = lKeyTime.GetMilliSeconds();
+        node.rotationKeys.push_back(key);
+    }
+}
 
 

@@ -28,6 +28,7 @@ public:
     void setup( FbxTime aStartTime, FbxTime aStopTime, FbxTime aFrameTime );
     
     void update();
+    void update(float sec);
     
     bool isFrameNew();
     void setSpeed( float aSpeed );

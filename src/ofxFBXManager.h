@@ -15,6 +15,7 @@ public:
     
     void setup( ofxFBXScene* aScene );
     void update();
+    void update(float sec);
     void lateUpdate();
     
     void draw();

@@ -19,7 +19,17 @@
 #include <fbxsdk.h>
 #include "GetPosition.h"
 
+
 // --- from Arturo Castro's ofxFBX -------
+inline ofVec3f ofxFBXNodePosition(FbxNode* pNode){
+    return ofVec3f(pNode->LclTranslation.Get().mData[0],pNode->LclTranslation.Get().mData[1],pNode->LclTranslation.Get().mData[2]);
+}
+
+
+inline ofQuaternion ofxFBXNodeRotation(FbxNode* pNode){
+    return ofQuaternion( pNode->LclRotation.Get().mData[0], ofVec3f(1, 0, 0), pNode->LclRotation.Get().mData[1], ofVec3f(0, 1, 0), pNode->LclRotation.Get().mData[2], ofVec3f(0, 0, 1));
+}
+
 inline ofVec4f toOf(const FbxVector4 & vec4){
 	return ofVec4f(vec4[0],vec4[1],vec4[2],vec4[3]);
 }

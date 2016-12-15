@@ -64,7 +64,6 @@ void ofxFBXAnimation::update() {
             lastUpdateTimeMillis = etimeMillis;
         }
     }
-    
         
     if( _speed >= 0 ) {
         if(fbxCurrentTime > fbxStopTime ) {
@@ -83,6 +82,41 @@ void ofxFBXAnimation::update() {
             bDone = false;
         }
     }
+}
+
+void ofxFBXAnimation::update(float sec){
+    bNewFrame = false;
+    
+    
+    //    cout << "speed: " << _speed << endl;
+    float tspeed            = _speed;
+    if( tspeed < 0 ) tspeed *= -1.f;
+    float clampFrameTime    = getFramerate() * tspeed;//ofClamp( getFramerate() * tspeed, 0.0001, 600);
+    float tframeTime        = (1.f / clampFrameTime) * 1000.f;
+    
+    if(bPlaying) {
+        setPosition(sec / getDurationSeconds());
+    }
+    
+    if( _speed >= 0 ) {
+        if(fbxCurrentTime > fbxStopTime ) {
+            bDone = true;
+            if(bLoop) fbxCurrentTime = fbxStartTime;
+            else fbxCurrentTime = fbxStopTime;
+        } else {
+            bDone = false;
+        }
+    } else {
+        if(fbxCurrentTime < fbxStartTime ) {
+            bDone = true;
+            if(bLoop) fbxCurrentTime = fbxStopTime;
+            else fbxCurrentTime = fbxStartTime;
+        } else {
+            bDone = false;
+        }
+    }
+    
+    bNewFrame = true;
 }
 
 //--------------------------------------------------------------

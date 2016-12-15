@@ -90,6 +90,55 @@ void ofxFBXManager::update() {
             skeletons[i]->update( animations[animationIndex].fbxCurrentTime, lPose );
         }
 //    }
+    
+    for ( auto c : fbxScene->getCameras() ) {
+        c->setTime(animations[animationIndex].getPositionMillis());
+    }
+}
+
+//--------------------------------------------------------------
+void ofxFBXManager::update(float sec) {
+    
+    FbxPose * lPose = NULL;
+    // poses will override the animations and the settings of the bones //
+    if( arePosesEnabled() && hasPoses() && (poseIndex >= 0 && poseIndex < getNumPoses() ) ) {
+        //        cout << "Got a pose | " << ofGetFrameNum() << endl;
+        lPose = fbxScene->getFBXScene()->GetPose( poseIndex );
+    }
+    
+    if( !areAnimationsEnabled() || !hasAnimations() ) {
+        FbxTime ttime(FBXSDK_TIME_INFINITE);
+        //        cout << "Calling update bones: " << " | " << ofGetElapsedTimef() << endl;
+        for(int i = 0; i < skeletons.size(); i++ ) {
+            skeletons[i]->update( ttime, lPose );
+        }
+        
+    }
+    
+    if(animations.size() < 1) return;
+    if(!areAnimationsEnabled()) return;
+    
+    //    cout << "Should not be reaching here: ofxFBXManager :: update | " << ofGetFrameNum() << endl;
+    
+    animations[animationIndex].update(sec);
+    
+    if( currentAnimationStack != NULL ) {
+        fbxScene->getFBXScene()->SetCurrentAnimationStack( currentAnimationStack );
+    }
+    
+    //    cout << "ofxFBXManager :: update : animations | " << ofGetElapsedTimef() << endl;
+    // TODO: is there a way to check if we need to update the bone positions? Right now it always updates.
+    // If other fbxManagers are playing animations at different times or moving around bones, then it will get weird if it doesn't
+    // update.  //
+    //    if(animations[animationIndex].isFrameNew() || animations[animationIndex].isPaused() ) {
+    for(int i = 0; i < skeletons.size(); i++ ) {
+        skeletons[i]->update( animations[animationIndex].fbxCurrentTime, lPose );
+    }
+    //    }
+    
+    for ( auto c : fbxScene->getCameras() ) {
+        c->setTime(animations[animationIndex].getPositionMillis());
+    }
 }
 
 //--------------------------------------------------------------

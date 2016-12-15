@@ -14,4 +14,5 @@
 #include "ofxFBXBone.h"
 #include "ofxFBXAnimation.h"
 #include "ofxFBXManager.h"
+#include "ofxFBXCamera.h"
 
