@@ -87,33 +87,14 @@ void ofxFBXAnimation::update() {
 void ofxFBXAnimation::update(float sec){
     bNewFrame = false;
     
-    
-    //    cout << "speed: " << _speed << endl;
-    float tspeed            = _speed;
-    if( tspeed < 0 ) tspeed *= -1.f;
-    float clampFrameTime    = getFramerate() * tspeed;//ofClamp( getFramerate() * tspeed, 0.0001, 600);
-    float tframeTime        = (1.f / clampFrameTime) * 1000.f;
-    
     if(bPlaying) {
-        setPosition(sec / getDurationSeconds());
-    }
-    
-    if( _speed >= 0 ) {
-        if(fbxCurrentTime > fbxStopTime ) {
-            bDone = true;
-            if(bLoop) fbxCurrentTime = fbxStartTime;
-            else fbxCurrentTime = fbxStopTime;
-        } else {
-            bDone = false;
+        float pct = sec / getDurationSeconds();
+        if(bLoop) pct = fmod(pct, 1.0);
+        else {
+            if ( pct < 0 ) pct = 0;
+            if ( pct > 1 ) pct = 1;
         }
-    } else {
-        if(fbxCurrentTime < fbxStartTime ) {
-            bDone = true;
-            if(bLoop) fbxCurrentTime = fbxStopTime;
-            else fbxCurrentTime = fbxStartTime;
-        } else {
-            bDone = false;
-        }
+        setPosition(pct);
     }
     
     bNewFrame = true;
