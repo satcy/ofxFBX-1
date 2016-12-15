@@ -30,7 +30,7 @@ void ofxFBXCamera::updateLookAt(){
     ofCamera::lookAt(center,up);
 }
 
-void ofxFBXCamera::setTime(u_long ms){
+void ofxFBXCamera::setTime(unsigned long ms){
     ofCamera::setOrientation(getRotationAt(ms));
     ofCamera::setPosition(getPositionAt(ms));
     ofCamera::setScale(getScaleAt(ms));
@@ -38,7 +38,7 @@ void ofxFBXCamera::setTime(u_long ms){
 }
 
 
-void ofxFBXCamera::setFrame(u_int frame){
+void ofxFBXCamera::setFrame(unsigned int frame){
     ofCamera::setOrientation(getRotationAtFrame(frame));
     ofCamera::setPosition(getPositionAtFrame(frame));
     ofCamera::setScale(getScaleAtFrame(frame));

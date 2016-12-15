@@ -16,8 +16,8 @@
 
 class ofxFBXCamera: public ofCamera, public ofxFBXNode{
 public:
-    void setTime(u_long ms);
-    void setFrame(u_int frame);
+    void setTime(unsigned long ms);
+    void setFrame(unsigned int frame);
 protected:
     ofVec3f target;
 private:

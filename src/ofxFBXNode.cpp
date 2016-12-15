@@ -40,17 +40,17 @@ void ofxFBXNode::setName( FbxString aName ) {
 }
 
 /** from arturoc ofxFBX */
-float getValueAt(std::vector<ofxFBXKey<float> >& keys,float defaultValue,u_long ms){
-    for(u_int i=0;i<keys.size();i++){
+float getValueAt(std::vector<ofxFBXKey<float> >& keys,float defaultValue,unsigned long ms){
+    for(unsigned int i=0;i<keys.size();i++){
         if(keys[i].timeMillis==ms){
             return keys[i].value;
         }else if(keys[i].timeMillis>ms){
             if(i>0){
-                u_long delta = ms - keys[i-1].timeMillis;
+                unsigned long delta = ms - keys[i-1].timeMillis;
                 float pct = double(delta) / double(keys[i].timeMillis - keys[i-1].timeMillis);
                 return  ofLerp(keys[i-1].value,keys[i].value,pct);
             }else{
-                u_long delta = ms;
+                unsigned long delta = ms;
                 float pct = double(delta) / double(keys[i].timeMillis);
                 return ofLerp(defaultValue,keys[i].value,pct);
             }
@@ -63,7 +63,7 @@ float getValueAt(std::vector<ofxFBXKey<float> >& keys,float defaultValue,u_long 
     }
 }
 
-ofVec3f ofxFBXNode::getPositionAt(u_long ms){
+ofVec3f ofxFBXNode::getPositionAt(unsigned long ms){
     ofVec3f position;
     position.x = getValueAt(xKeys,originalPosition.x,ms);
     position.y = getValueAt(yKeys,originalPosition.y,ms);
@@ -72,7 +72,7 @@ ofVec3f ofxFBXNode::getPositionAt(u_long ms){
 }
 
 
-ofVec3f ofxFBXNode::getPositionAtFrame(u_int frame){
+ofVec3f ofxFBXNode::getPositionAtFrame(unsigned int frame){
     ofVec3f position;
     if(xKeys.empty()){
         position.x = originalPosition.x;
@@ -92,7 +92,7 @@ ofVec3f ofxFBXNode::getPositionAtFrame(u_int frame){
     return position;
 }
 
-ofVec3f ofxFBXNode::getScaleAt(u_long ms){
+ofVec3f ofxFBXNode::getScaleAt(unsigned long ms){
     ofVec3f scale;
     scale.x = getValueAt(xScaleKeys,originalScale.x,ms);
     scale.y = getValueAt(yScaleKeys,originalScale.y,ms);
@@ -100,7 +100,7 @@ ofVec3f ofxFBXNode::getScaleAt(u_long ms){
     return scale;
 }
 
-ofVec3f ofxFBXNode::getScaleAtFrame(u_int frame){
+ofVec3f ofxFBXNode::getScaleAtFrame(unsigned int frame){
     ofVec3f scale;
     if(xScaleKeys.empty()){
         scale.x = originalScale.x;
@@ -120,19 +120,19 @@ ofVec3f ofxFBXNode::getScaleAtFrame(u_int frame){
     return scale;
 }
 
-ofQuaternion ofxFBXNode::getRotationAt(u_long ms){
-    for(u_int i=0;i<rotationKeys.size();i++){
+ofQuaternion ofxFBXNode::getRotationAt(unsigned long ms){
+    for(unsigned int i=0;i<rotationKeys.size();i++){
         if(rotationKeys[i].timeMillis==ms){
             return rotationKeys[i].value;
         }else if(rotationKeys[i].timeMillis>ms){
             if(i>0){
-                u_long delta = ms - rotationKeys[i-1].timeMillis;
+                unsigned long delta = ms - rotationKeys[i-1].timeMillis;
                 float pct = double(delta) / double(rotationKeys[i].timeMillis - rotationKeys[i-1].timeMillis);
                 ofQuaternion q;
                 q.slerp(pct,rotationKeys[i-1].value,rotationKeys[i].value);
                 return q;
             }else{
-                u_long delta = ms;
+                unsigned long delta = ms;
                 float pct = double(delta) / double(rotationKeys[i].timeMillis);
                 ofQuaternion q;
                 q.slerp(pct,originalRotation,rotationKeys[i].value);
@@ -147,7 +147,7 @@ ofQuaternion ofxFBXNode::getRotationAt(u_long ms){
     }
 }
 
-ofQuaternion ofxFBXNode::getRotationAtFrame(u_int frame){
+ofQuaternion ofxFBXNode::getRotationAtFrame(unsigned int frame){
     if(rotationKeys.empty()){
         return originalRotation;
     }else{
@@ -155,14 +155,14 @@ ofQuaternion ofxFBXNode::getRotationAtFrame(u_int frame){
     }
 }
 
-void ofxFBXNode::setTime(u_long ms){
+void ofxFBXNode::setTime(unsigned long ms){
     setOrientation(getRotationAt(ms));
     setPosition(getPositionAt(ms));
     setScale(getScaleAt(ms));
     //setScale(-1,-1,1);
 }
 
-void ofxFBXNode::setFrame(u_int frame){
+void ofxFBXNode::setFrame(unsigned int frame){
     setOrientation(getRotationAtFrame(frame));
     setPosition(getPositionAtFrame(frame));
     setScale(getScaleAtFrame(frame));

@@ -26,7 +26,7 @@
 template<class T>
 struct ofxFBXKey{
     T value;
-    u_long timeMillis;
+    unsigned long timeMillis;
 };
 
 class ofxFBXNode : public ofNode {
@@ -41,17 +41,17 @@ public:
     void setName( FbxString aName );
     
 /** from arturoc ofxFBX */
-    ofVec3f getPositionAt(u_long ms);
-    ofVec3f getPositionAtFrame(u_int frame);
+    ofVec3f getPositionAt(unsigned long ms);
+    ofVec3f getPositionAtFrame(unsigned int frame);
     
-    ofVec3f getScaleAt(u_long ms);
-    ofVec3f getScaleAtFrame(u_int frame);
+    ofVec3f getScaleAt(unsigned long ms);
+    ofVec3f getScaleAtFrame(unsigned int frame);
     
-    ofQuaternion getRotationAt(u_long ms);
-    ofQuaternion getRotationAtFrame(u_int frame);
+    ofQuaternion getRotationAt(unsigned long ms);
+    ofQuaternion getRotationAtFrame(unsigned int frame);
     
-    virtual void setTime(u_long ms);
-    virtual void setFrame(u_int frame);
+    virtual void setTime(unsigned long ms);
+    virtual void setFrame(unsigned int frame);
     
 //    // set parent to link nodes
 //	// transformations are inherited from parent node
